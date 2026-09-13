@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Isparta Otogarı'nda 3D Kaşık Oyunu Ekibi</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #87CEEB;
+            font-family: Arial, sans-serif;
+        }
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            text-align: center;
+            pointer-events: none;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            z-index: 10;
+        }
+        h1 { margin: 0 0 10px 0; font-size: 26px; color: #ffcc00; }
+        p { margin: 0; font-size: 16px; background: rgba(0,0,0,0.6); padding: 8px 18px; border-radius: 20px; border: 1px solid #ffcc00; }
+    </style>
+</head>
+<body>
+
+    <div id="ui">
+        <h1>Isparta Otogarı'nda Kaşık Ekibi</h1>
+        <p>Müziği başlatmak ve ekibi oynatıp yürütmek için <b>herhangi bir tuşa</b> basın!</p>
+    </div>
+
+    <!-- Müzik Dosyası -->
+    <audio id="gameMusic" loop>
+        <source src="KONYA Oyun havaları Saffet Efendi Hızlı Ayaslarlı ŞENOL.mp3" type="audio/mp3">
+    </audio>
+
+    <!-- Three.js Kütüphanesi -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script>
+        // --- SAHNE, KAMERA VE RENDERER ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xa0e0ff); // Gökyüzü
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 4, 12);
+        camera.lookAt(0, 1.5, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        document.body.appendChild(renderer.domElement);
+
+        // --- IŞIKLAR ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
+        dirLight.position.set(10, 15, 10);
+        dirLight.castShadow = true;
+        scene.add(dirLight);
+
+        // --- ISPARTA OTOGARI ÇEVRE DETAYLARI (Zemin ve Bina Silueti) ---
+        // Asfalt zemin (Otogar önü)
+        const floorGeo = new THREE.PlaneGeometry(50, 50);
+        const floorMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.9 });
+        const floor = new THREE.Mesh(floorGeo, floorMat);
+        floor.rotation.x = -Math.PI / 2;
+        floor.receiveShadow = true;
+        scene.add(floor);
+
+        // Otogar Bina Silueti (Fotoğraftaki yapıya benzer modern cephe)
+        const buildingGeo = new THREE.BoxGeometry(25, 6, 2);
+        const buildingMat = new THREE.MeshStandardMaterial({ color: 0x556b2f, roughness: 0.7 });
+        const building = new THREE.Mesh(buildingGeo, buildingMat);
+        building.position.set(0, 3, -12);
+        scene.add(building);
+
+        // Otogar Çatısı (Kavisli çatı hissi veren detay)
+        const roofGeo = new THREE.BoxGeometry(26, 0.5, 6);
+        const roofMat = new THREE.MeshStandardMaterial({ color: 0xcccccc });
+        const roof = new THREE.Mesh(roofGeo, roofMat);
+        roof.position.set(0, 6.2, -10);
+        scene.add(roof);
+
+        // --- KARAKTER ÜRETİCİ FONKSİYON ---
+        function createCharacter(shirtColor, pantsColor, startX, startZ) {
+            const characterGroup = new THREE.Group();
+
+            const shirtMat = new THREE.MeshStandardMaterial({ color: shirtColor, roughness: 0.5 });
+            const skinMat = new THREE.MeshStandardMaterial({ color: 0xf3c68f, roughness: 0.6 });
+            const hairMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.3 });
+            const spoonMat = new THREE.MeshStandardMaterial({ color: 0xdddddd, metalness: 0.95, roughness: 0.1 });
+            const pantsMat = new THREE.MeshStandardMaterial({ color: pantsColor });
+
+            // Kafa
+            const head = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.6, 0.55), skinMat);
+            head.position.y = 2.75;
+            head.castShadow = true;
+            characterGroup.add(head);
+
+            // Saç / Sakal
+            const hair = new THREE.Mesh(new THREE.BoxGeometry(0.57, 0.2, 0.57), hairMat);
+            hair.position.set(0, 0.22, 0);
+            head.add(hair);
+
+            const beard = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.2, 0.3), hairMat);
+            beard.position.set(0, -0.15, 0.18);
+            head.add(beard);
+
+            // Gövde
+            const torso = new THREE.Mesh(new THREE.BoxGeometry(0.85, 1.1, 0.45), shirtMat);
+            torso.position.y = 1.8;
+            torso.castShadow = true;
+            characterGroup.add(torso);
+
+            // Bacaklar
+            const legGeo = new THREE.BoxGeometry(0.32, 1.0, 0.32);
+            const leftLeg = new THREE.Mesh(legGeo, pantsMat);
+            leftLeg.position.set(-0.22, 0.5, 0);
+            characterGroup.add(leftLeg);
+
+            const rightLeg = new THREE.Mesh(legGeo, pantsMat);
+            rightLeg.position.set(0.22, 0.5, 0);
+            characterGroup.add(rightLeg);
+
+            // Kollar ve Kaşıklar
+            const leftArmGroup = new THREE.Group();
+            leftArmGroup.position.set(-0.55, 2.25, 0);
+            const leftArmMesh = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.85, 0.28), shirtMat);
+            leftArmMesh.position.y = -0.42;
+            leftArmGroup.add(leftArmMesh);
+            const spoonGeo = new THREE.BoxGeometry(0.1, 0.55, 0.04);
+            const leftSpoon = new THREE.Mesh(spoonGeo, spoonMat);
+            leftSpoon.position.set(0, -0.85, 0.08);
+            leftArmGroup.add(leftSpoon);
+            characterGroup.add(leftArmGroup);
+
+            const rightArmGroup = new THREE.Group();
+            rightArmGroup.position.set(0.55, 2.25, 0);
+            const rightArmMesh = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.85, 0.28), shirtMat);
+            rightArmMesh.position.y = -0.42;
+            rightArmGroup.add(rightArmMesh);
+            const rightSpoon = new THREE.Mesh(spoonGeo, spoonMat);
+            rightSpoon.position.set(0, -0.85, 0.08);
+            rightArmGroup.add(rightSpoon);
+            characterGroup.add(rightArmGroup);
+
+            characterGroup.position.set(startX, 0, startZ);
+            scene.add(characterGroup);
+
+            return {
+                group: characterGroup,
+                leftArm: leftArmGroup,
+                rightArm: rightArmGroup,
+                head: head,
+                baseX: startX,
+                baseZ: startZ
+            };
+        }
+
+        // --- EKİBİ OLUŞTUR (Farklı renklerde polo tişörtlü adamlar) ---
+        const dancers = [
+            createCharacter(0x489fb5, 0x1d3557, 0, 0),    // Ortadaki ana karakter (Mavi)
+            createCharacter(0xe63946, 0x1d3557, -2.5, 1), // Soldaki arkadaş (Kırmızı)
+            createCharacter(0x2a9d8f, 0x264653, 2.5, 1),  // Sağdaki arkadaş (Yeşil)
+            createCharacter(0xf4a261, 0x1d3557, -1.5, -2),// Arkadaki arkadaş (Turuncu)
+            createCharacter(0x9b5de5, 0x3a0ca3, 1.5, -2)  // Arkadaki diğer arkadaş (Mor)
+        ];
+
+        // --- OYUN KONTROLÜ VE HAREKET ---
+        let isDancing = false;
+        let clock = new THREE.Clock();
+        const music = document.getElementById('gameMusic');
+
+        window.addEventListener('keydown', (e) => {
+            if (!isDancing) {
+                isDancing = true;
+                music.play().catch(err => console.log("Müzik çalma hatası:", err));
+                document.getElementById('ui').innerHTML = `<h1>Isparta Otogarı'nda Coşku Var!</h1><p>Saffet Efendi çalıyor, ekip kaşık oynayarak geziniyor...</p>`;
+            }
+        });
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            let elapsedTime = clock.getElapsedTime();
+
+            if (isDancing) {
+                let speed = 18;
+                let beat = elapsedTime * speed;
+
+                dancers.forEach((d, index) => {
+                    // Her karakterin hareketine hafif offset vererek doğal duruş sağlıyoruz
+                    let offset = index * 1.2;
+                    let charBeat = beat + offset;
+
+                    // Dans ederek hareket etme (oturma alanında sağa sola / öne arkaya gezinti)
+                    d.group.position.x = d.baseX + Math.sin(elapsedTime * 1.5 + index) * 1.5;
+                    d.group.position.z = d.baseZ + Math.cos(elapsedTime * 1.0 + index) * 1.0;
+
+                    // Zıplama ve ritmik hareket
+                    d.group.position.y = Math.abs(Math.sin(charBeat)) * 0.4;
+                    d.group.rotation.y = Math.sin(charBeat * 0.5) * 0.3;
+
+                    // Kolların kaşık çalma hareketi
+                    d.leftArm.rotation.x = Math.sin(charBeat) * 1.0 + 0.4;
+                    d.leftArm.rotation.z = Math.cos(charBeat * 0.5) * 0.4 + 0.3;
+
+                    d.rightArm.rotation.x = Math.cos(charBeat) * 1.0 + 0.4;
+                    d.rightArm.rotation.z = -Math.sin(charBeat * 0.5) * 0.4 - 0.3;
+
+                    // Kafa sallama
+                    d.head.rotation.z = Math.sin(charBeat * 2) * 0.25;
+                });
+            } else {
+                // Bekleme konumu
+                dancers.forEach(d => {
+                    d.group.position.set(d.baseX, 0, d.baseZ);
+                    d.group.rotation.set(0, 0, 0);
+                    d.leftArm.rotation.set(0, 0, 0);
+                    d.rightArm.rotation.set(0, 0, 0);
+                    d.head.rotation.set(0, 0, 0);
+                });
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
